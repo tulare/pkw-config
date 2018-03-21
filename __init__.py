@@ -3,13 +3,21 @@
 import os
 import sqlite3
 
-CONF_PATH = os.path.dirname(__file__)
-ROOT_PATH = os.path.dirname(CONF_PATH)
+__all__ = ['ROOT_PATH', 'CONFIG_DEFAULT_DATABASE', 'Configuration']
+
+ROOT_PATH = os.path.dirname(
+    os.path.dirname(__file__)
+)
+
+CONFIG_DEFAULT_DATABASE = ROOT_PATH + '/config.db'
+
+class ConfigurationError(Exception) :
+    pass
 
 class Configuration :
 
-    def __init__(self) :
-        self.database = CONF_PATH + '/database.db'
+    def __init__(self, database=CONFIG_DEFAULT_DATABASE) :
+        self.database = database
 
         # creation table config si nécessaire
         with sqlite3.connect(self.database) as db :
@@ -19,6 +27,17 @@ class Configuration :
                     value STRING NOT NULL
                 )
             """)
+
+    @property        
+    def items(self) :
+        with sqlite3.connect(self.database) as db :
+            # select
+            cursor = db.execute("SELECT * FROM config")
+            return dict(cursor.fetchall())
+
+    @property
+    def keys(self) :
+        return set(self.items.keys())
 
     def get(self, key, default=None) :
         with sqlite3.connect(self.database) as db :
@@ -32,7 +51,7 @@ class Configuration :
             except :
                 return default
         
-    def set(self, key, value) :
+    def add(self, key, value) :
         with sqlite3.connect(self.database) as db :
             try :
                 # insert
@@ -65,11 +84,16 @@ class Configuration :
                 db.commit()
 
             return cursor.rowcount
-
-    @property        
-    def items(self) :
-        with sqlite3.connect(self.database) as db :
-            # select
-            cursor = db.execute("SELECT * FROM config")
-            return dict(cursor.fetchall())
         
+    def checklist(self, key_list) :
+        missing = set(key_list).difference(self.keys)
+        if missing :
+            raise ConfigurationError(missing)
+
+        return True
+        
+    def checkfile(self, chkfile) :
+        with open(chkfile, 'r') as fd :
+            key_list = set(line.strip() for line in fd)
+            return self.checklist(key_list)
+            
