@@ -14,6 +14,9 @@ CONFIG_DEFAULT_DATABASE = ROOT_PATH + '/config.db'
 class ConfigurationError(Exception) :
     pass
 
+class ConfigurationKeyError(Exception) :
+    pass
+
 class Configuration :
 
     def __init__(self, database=CONFIG_DEFAULT_DATABASE) :
@@ -46,9 +49,11 @@ class Configuration :
                 (key,)
             )
             row = cursor.fetchone()
-            try :
-                return row[0]
-            except :
+            if row :
+                return row[0]            
+            else :
+                if default is None :
+                    raise ConfigurationKeyError(key)
                 return default
         
     def add(self, key, value) :
